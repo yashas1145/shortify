@@ -1,0 +1,57 @@
+package in.ybuilds.shortify.controller;
+
+import in.ybuilds.shortify.dto.ShortenUrlRequest;
+import in.ybuilds.shortify.service.RateLimitService;
+import in.ybuilds.shortify.service.UrlShortenerService;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.HttpStatusCode;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api")
+@Slf4j
+@RequiredArgsConstructor
+public class UrlShortenerController {
+    private final UrlShortenerService urlShortenerService;
+    private final RateLimitService rateLimitService;
+
+    @PostMapping("/shorten")
+    public ResponseEntity<?> shortenUrl(
+            @Valid @RequestBody ShortenUrlRequest request,
+            HttpServletRequest httpServletRequest
+    ) {
+        String clientIp = getClientIp(httpServletRequest);
+
+        if (!rateLimitService.isAllowed()) {
+            return ResponseEntity
+                    .status(HttpStatus.TOO_MANY_REQUESTS)
+                    .body(Map.of());
+        }
+
+        return null;
+    }
+
+    private String getClientIp(HttpServletRequest httpServletRequest) {
+        String xForwardedFor = httpServletRequest.getHeader("X-Forwarded-For");
+        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
+            return xForwardedFor.split(",")[0];
+        }
+
+        String xRealIp = httpServletRequest.getHeader("X-Real-IP");
+        if (xRealIp != null && !xRealIp.isEmpty()) {
+            return xRealIp;
+        }
+
+        return httpServletRequest.getRemoteAddr();
+    }
+}
