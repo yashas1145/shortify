@@ -1,6 +1,7 @@
 package in.ybuilds.shortify.controller;
 
 import in.ybuilds.shortify.dto.ShortenUrlRequest;
+import in.ybuilds.shortify.dto.ShortenUrlResponse;
 import in.ybuilds.shortify.service.RateLimitService;
 import in.ybuilds.shortify.service.UrlShortenerService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,10 +33,21 @@ public class UrlShortenerController {
     ) {
         String clientIp = getClientIp(httpServletRequest);
 
-        if (!rateLimitService.isAllowed()) {
+        if (!rateLimitService.isAllowed(clientIp)) {
             return ResponseEntity
                     .status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(Map.of());
+                    .body(Map.of(
+                            "error", "rate limit exceeded",
+                            "remainingRequests", rateLimitService.getRemainingRequests(clientIp),
+                            "timeUntilReset", rateLimitService.getTimeUntilReset(clientIp)
+                    ));
+        }
+
+        try {
+            ShortenUrlResponse response = urlShortenerService.shortenUrl(request, clientIp);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+
         }
 
         return null;
