@@ -26,7 +26,7 @@ shortify:
   cache:
     ttl-minutes: 30
   cleanup:
-    interval-minutes: 5
+    interval-minutes: 1
     expired-urls-batch-size: 100
 
 logging:

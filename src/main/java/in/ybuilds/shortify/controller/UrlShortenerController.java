@@ -2,6 +2,8 @@ package in.ybuilds.shortify.controller;
 
 import in.ybuilds.shortify.dto.ShortenUrlRequest;
 import in.ybuilds.shortify.dto.ShortenUrlResponse;
+import in.ybuilds.shortify.dto.UrlAnalyticsResponse;
+import in.ybuilds.shortify.dto.UrlStatsResponse;
 import in.ybuilds.shortify.service.RateLimitService;
 import in.ybuilds.shortify.service.UrlShortenerService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -52,6 +54,28 @@ public class UrlShortenerController {
         }
     }
 
+    @GetMapping("/stats/{shortCode}")
+    public ResponseEntity<?> getUrlStats(@PathVariable String shortCode) {
+        Optional<UrlStatsResponse> urlStatsResponse = urlShortenerService.getUrlStats(shortCode);
+
+        if(urlStatsResponse.isPresent()) {
+            return ResponseEntity.ok(urlStatsResponse.get());
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Short code not found"));
+        }
+    }
+
+    @GetMapping("/analytics/{shortCode}")
+    public ResponseEntity<?> getUrlAnalytics(@PathVariable String shortCode) {
+        Optional<UrlAnalyticsResponse> urlAnalyticsResponse = urlShortenerService.getUrlAnalytics(shortCode);
+
+        if(urlAnalyticsResponse.isPresent()) {
+            return ResponseEntity.ok(urlAnalyticsResponse);
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Short code not found"));
+        }
+    }
+
     @GetMapping("/{shortCode}")
     public ResponseEntity<?> redirectToUrl(
             @PathVariable String shortCode,
@@ -71,6 +95,17 @@ public class UrlShortenerController {
         } else {
             log.warn("Requested short code's original IP not found");
             return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
+    @DeleteMapping("/{shortCode}")
+    public ResponseEntity<?> deleteUrl(@PathVariable String shortCode) {
+        boolean deleted = urlShortenerService.deleteUrl(shortCode);
+
+        if(deleted) {
+            return ResponseEntity.ok(Map.of("message", "URL deleted successfully"));
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", "Short code not found"));
         }
     }
 
