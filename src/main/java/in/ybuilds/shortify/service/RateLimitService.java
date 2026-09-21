@@ -6,9 +6,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 
@@ -17,13 +19,14 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public class RateLimitService {
     private final RedisTemplate<String, Object> redisTemplate;
+    private final ObjectMapper objectMapper;
 
     @Value("${shortify.rate-limit.request-per-minute}")
     private int requestPerMinute;
     @Value("${shortify.rate-limit.request-per-hour}")
     private int requestPerHour;
 
-    private final ConcurrentHashMap<String, RateLimitData> rateLimitData = new ConcurrentHashMap<>();
+    private final Map<String, RateLimitData> rateLimitData = new ConcurrentHashMap<>();
     private static final String REDIS_KEY_PREFIX = "ratelimit:";
 
     public boolean isAllowed(String clientIp) {
@@ -68,7 +71,7 @@ public class RateLimitService {
 
         saveRateLimitDataToRedis(redisKey, data);
 
-        return false;
+        return true;
     }
 
     private void saveRateLimitDataToRedis(String redisKey, RateLimitData data) {
@@ -80,7 +83,7 @@ public class RateLimitService {
     }
 
     private boolean isWithinHourWindow(RateLimitData data, LocalDateTime now) {
-        return data.getHourWindowStart() != null && ChronoUnit.HOURS.between(data.getMinuteWindowStart(), now) < 1;
+        return data.getHourWindowStart() != null && ChronoUnit.HOURS.between(data.getHourWindowStart(), now) < 1;
     }
 
     private boolean isWithinMinuteWindow(RateLimitData data, LocalDateTime now) {
@@ -89,7 +92,11 @@ public class RateLimitService {
 
     private RateLimitData getRateLimitData(String redisKey) {
         try {
-            return (RateLimitData) redisTemplate.opsForValue().get(redisKey);
+            Object value = redisTemplate.opsForValue().get(redisKey);
+            if (value == null) {
+                return null;
+            }
+            return objectMapper.convertValue(value, RateLimitData.class);
         } catch (Exception e) {
             log.warn("Failed to get rate limit data from Redis: {}", e.getMessage());
             return null;
@@ -130,7 +137,7 @@ public class RateLimitService {
             return ChronoUnit.SECONDS.between(now, nextMinute);
         }
 
-        if(data.getHourCount() >= requestPerMinute) {
+        if(data.getHourCount() >= requestPerHour) {
             LocalDateTime nextHour = data.getHourWindowStart().plusHours(1);
             return ChronoUnit.SECONDS.between(now, nextHour);
         }
